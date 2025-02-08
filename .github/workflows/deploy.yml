@@ -23,13 +23,25 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Build and Push Images
+      - name: Build and Push CreatePost Image
         run: |
-          services=("createpost" "getpost" "updatepost" "deletepost")
-          for service in "${services[@]}"; do
-            docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/app:${service}-latest ./${service}
-            docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:${service}-latest
-          done
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest ./createPost
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest
+
+      - name: Build and Push GetPost Image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest ./getPost
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest
+
+      - name: Build and Push UpdatePost Image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest ./updatePost
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest
+
+      - name: Build and Push DeletePost Image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest ./deletePost
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
 
   deploy_ec2:
     name: Deploy on EC2
@@ -55,7 +67,7 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_REGION: "us-east-1"
           DYNAMODB_TABLE: "PostsTable"
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
           REDIS_HOST: ${{ secrets.REDIS_HOST }}
@@ -71,15 +83,6 @@ jobs:
             sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest
             sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest
             sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
-
-            echo "Verifying environment variables..."
-            echo "AWS_REGION=${AWS_REGION}"
-            echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}"
-            echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}"
-            echo "DYNAMODB_TABLE=${DYNAMODB_TABLE}"
-            echo "S3_BUCKET=${S3_BUCKET}"
-            echo "REDIS_HOST=${REDIS_HOST}"
-            echo "REDIS_PORT=${REDIS_PORT}"
 
             echo "Running containers with the latest images and environment variables..."
             sudo docker run -d -p 3001:3000 --name createpost \
