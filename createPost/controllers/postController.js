@@ -1,13 +1,19 @@
 const postService = require("../services/postService");
-module.exports.createPost = async (req, res) => {
+
+exports.createPost = async (req, res) => {
   try {
-    const imageBuffer = req.file ? req.file.buffer : null;
-    const fileName = imageBuffer ? `${Date.now()}.jpg` : null;
-    const imageUrl = imageBuffer ? await postService.uploadImageToS3(imageBuffer, fileName, "image/jpeg") : null;
-    
-    const post = await postService.createPost({ user: req.body.user, content: req.body.content, imageUrl });
-    res.status(201).json(post);
+    const { user, content } = req.body;
+    let imageUrl = null;
+
+    if (req.file) {
+      imageUrl = await postService.uploadImageToS3(req.file.buffer, req.file.originalname, req.file.mimetype);
+    }
+
+    const newPost = await postService.createPost({ user, content, imageUrl });
+
+    res.status(201).json(newPost);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error creating post:", error);
+    res.status(500).json({ error: "Failed to create post" });
   }
 };

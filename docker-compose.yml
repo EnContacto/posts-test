@@ -2,19 +2,15 @@ version: '3.8'
 
 services:
   createpost:
-    image: ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest
+    image: ztencontacto/app:createpost-latest
+    container_name: createpost
+    restart: always
     ports:
       - "3001:3000"
     environment:
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_REGION}
-      - DYNAMODB_TABLE=${DYNAMODB_TABLE}
-      - S3_BUCKET=${S3_BUCKET}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-    depends_on:
-      - redis
+      - AWS_REGION=us-east-1
+      - DYNAMODB_TABLE=PostsTable
+      - S3_BUCKET=distribuidabucketsocial
     networks:
       - app_network
 

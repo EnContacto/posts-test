@@ -1,18 +1,10 @@
 const AWS = require("aws-sdk");
 
 AWS.config.update({
-  region: process.env.AWS_REGION,
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  region: process.env.AWS_REGION || "us-east-1",
 });
 
-module.exports = {
-  dynamoDB: {
-    tableName: process.env.DYNAMODB_TABLE,
-    client: new AWS.DynamoDB.DocumentClient()
-  },
-  s3: {
-    bucketName: process.env.S3_BUCKET,
-    client: new AWS.S3()
-  }
-};
+const dynamoDB = new AWS.DynamoDB.DocumentClient();
+const s3 = new AWS.S3();
+
+module.exports = { dynamoDB, s3 };
