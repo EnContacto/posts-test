@@ -56,9 +56,21 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_PUBLIC_IP }} >> ~/.ssh/known_hosts
 
-      - name: Verify SSH Connection
+      - name: Verify SSH Key Formatting
         run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_PUBLIC_IP }} "echo 'SSH Connection Successful'"
+          echo "Checking SSH Key format..."
+          awk '{print NR " " $0}' ~/.ssh/id_rsa
+
+      - name: Check Possible EC2 Users
+        run: |
+          for user in ubuntu ec2-user admin; do
+            echo "Trying SSH with user: $user"
+            if ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $user@${{ secrets.EC2_PUBLIC_IP }} "echo 'SSH Connection Successful'"; then
+              echo "Using user: $user"
+              echo "EC2_SSH_USER=$user" >> $GITHUB_ENV
+              break
+            fi
+          done
 
       - name: Deploy to EC2
         env:
@@ -66,7 +78,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: "us-east-1"
         run: |
-          ssh -i ~/.ssh/id_rsa ubuntu@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
+          ssh -i ~/.ssh/id_rsa ${{ env.EC2_SSH_USER }}@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
             echo "Changing to project directory..."
             cd ~/app || exit 1
 
