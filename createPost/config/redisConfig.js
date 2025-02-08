@@ -9,6 +9,9 @@ const client = createClient({
 
 client.on("error", (err) => console.error("Redis error:", err));
 
-client.connect(); // Importante: Conectar explícitamente en Redis v4+
+(async () => {
+  await client.connect(); // 🔥 Se requiere en Redis v4+
+  console.log("Connected to Redis");
+})();
 
 module.exports = client;
