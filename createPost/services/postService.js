@@ -7,7 +7,7 @@ module.exports.createPost = async ({ user, content, imageUrl }) => {
   const newPost = { id, user, content, imageUrl, timestamp };
   
   await dynamoDB.client.put({ TableName: dynamoDB.tableName, Item: newPost }).promise();
-  redisClient.setex(id, 3600, JSON.stringify(newPost));
+  await redisClient.set(id, JSON.stringify(newPost), { EX: 3600 });
   
   return newPost;
 };
