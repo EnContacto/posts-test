@@ -2,58 +2,70 @@ version: '3.8'
 
 services:
   createpost:
-    build: ./createPost
+    image: ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest
     ports:
       - "3001:3000"
-    env_file:
-      - .env
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - DYNAMODB_TABLE=${DYNAMODB_TABLE}
+      - S3_BUCKET=${S3_BUCKET}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
     depends_on:
-      - dynamodb
       - redis
     networks:
       - app_network
 
   deletepost:
-    build: ./deletePost
+    image: ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
     ports:
       - "3002:3000"
-    env_file:
-      - .env
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - DYNAMODB_TABLE=${DYNAMODB_TABLE}
+      - S3_BUCKET=${S3_BUCKET}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
     depends_on:
-      - dynamodb
       - redis
     networks:
       - app_network
 
   getpost:
-    build: ./getPost
+    image: ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest
     ports:
       - "3003:3000"
-    env_file:
-      - .env
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - DYNAMODB_TABLE=${DYNAMODB_TABLE}
+      - S3_BUCKET=${S3_BUCKET}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
     depends_on:
-      - dynamodb
       - redis
     networks:
       - app_network
 
   updatepost:
-    build: ./updatePost
+    image: ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest
     ports:
       - "3004:3000"
-    env_file:
-      - .env
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - DYNAMODB_TABLE=${DYNAMODB_TABLE}
+      - S3_BUCKET=${S3_BUCKET}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
     depends_on:
-      - dynamodb
       - redis
-    networks:
-      - app_network
-
-  dynamodb:
-    image: amazon/dynamodb-local
-    ports:
-      - "8000:8000"
-    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb"]
     networks:
       - app_network
 
