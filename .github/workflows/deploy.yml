@@ -23,11 +23,20 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
+      - name: Verify Directories Exist
+        run: |
+          for service in createpost getpost updatepost deletepost; do
+            if [ ! -d "./$service" ]; then
+              echo "Error: Directory ./$service does not exist."
+              exit 1
+            fi
+          done
+
       - name: Build and Push Docker Images
         run: |
-          services=("createpost" "getpost" "updatepost" "deletepost")
-          for service in "${services[@]}"; do
-            docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/app:${service}-latest ./${service}
+          for service in createpost getpost updatepost deletepost; do
+            echo "Building and pushing $service..."
+            docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/app:${service}-latest ./$service
             docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:${service}-latest
           done
 
