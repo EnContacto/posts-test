@@ -68,7 +68,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: "us-east-1"
-          DYNAMODB_TABLE: "PostsTable"
+          DYNAMODB_TABLE: "${{ secrets.DYNAMODB_TABLE }}"
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
           REDIS_HOST: ${{ secrets.REDIS_HOST }}
           REDIS_PORT: "6379"
@@ -79,6 +79,12 @@ jobs:
             if [ ! -z "$RUNNING_CONTAINERS" ]; then
               sudo docker stop $RUNNING_CONTAINERS
               sudo docker rm $RUNNING_CONTAINERS
+            fi
+
+            echo "Verificando variables de entorno..."
+            if [[ -z "${DYNAMODB_TABLE}" ]]; then
+              export DYNAMODB_TABLE="PostsTable"
+              echo "DYNAMODB_TABLE no estaba definido, usando valor predeterminado: ${DYNAMODB_TABLE}"
             fi
 
             echo "Pulling latest Docker images..."
