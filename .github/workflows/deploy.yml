@@ -1,79 +1,103 @@
-- name: Deploy Docker Containers on EC2
-env:
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  AWS_REGION: "us-east-1"
-  DYNAMODB_TABLE: "${{ secrets.DYNAMODB_TABLE }}"
-  S3_BUCKET: ${{ secrets.S3_BUCKET }}
-  REDIS_HOST: ${{ secrets.REDIS_HOST }}
-  REDIS_PORT: "6379"
-run: |
-  ssh -i ~/.ssh/id_rsa ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
-    echo "Verificando variables de entorno..."
-    echo "AWS_REGION=${AWS_REGION}"
-    echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}"
-    echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}"
-    echo "DYNAMODB_TABLE=${DYNAMODB_TABLE}"
-    echo "S3_BUCKET=${S3_BUCKET}"
-    echo "REDIS_HOST=${REDIS_HOST}"
-    echo "REDIS_PORT=${REDIS_PORT}"
+name: Deploy to EC2
 
-    # Si DYNAMODB_TABLE está vacío, asignar un valor predeterminado
-    if [[ -z "${DYNAMODB_TABLE}" ]]; then
-      export DYNAMODB_TABLE="PostsTable"
-      echo "DYNAMODB_TABLE no estaba definido, usando valor predeterminado: ${DYNAMODB_TABLE}"
-    fi
+on:
+  push:
+    branches:
+      - main
 
-    echo "Stopping and removing existing containers..."
-    sudo docker stop createpost deletepost getpost updatepost || echo "No running containers to stop."
-    sudo docker rm createpost deletepost getpost updatepost || echo "No existing containers to remove."
+jobs:
+  build_and_push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
 
-    echo "Pulling latest Docker images..."
-    sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest
-    sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest
-    sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest
-    sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    echo "Running containers with the latest images and environment variables..."
-    export AWS_REGION="us-east-1"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-    sudo docker run -d -p 3001:3000 --name createpost \
-      -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
-      -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-      -e AWS_REGION="us-east-1" \
-      -e DYNAMODB_TABLE="${DYNAMODB_TABLE}" \
-      -e S3_BUCKET="${S3_BUCKET}" \
-      -e REDIS_HOST="${REDIS_HOST}" \
-      -e REDIS_PORT="${REDIS_PORT}" \
-      ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-    sudo docker run -d -p 3002:3000 --name deletepost \
-      -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
-      -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-      -e AWS_REGION="us-east-1" \
-      -e DYNAMODB_TABLE="${DYNAMODB_TABLE}" \
-      -e S3_BUCKET="${S3_BUCKET}" \
-      -e REDIS_HOST="${REDIS_HOST}" \
-      -e REDIS_PORT="${REDIS_PORT}" \
-      ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
+      - name: Build and Push Docker Images
+        run: |
+          services=("createpost" "getpost" "updatepost" "deletepost")
+          for service in "${services[@]}"; do
+            docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/app:${service}-latest ./${service}
+            docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:${service}-latest
+          done
 
-    sudo docker run -d -p 3003:3000 --name getpost \
-      -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
-      -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-      -e AWS_REGION="us-east-1" \
-      -e DYNAMODB_TABLE="${DYNAMODB_TABLE}" \
-      -e S3_BUCKET="${S3_BUCKET}" \
-      -e REDIS_HOST="${REDIS_HOST}" \
-      -e REDIS_PORT="${REDIS_PORT}" \
-      ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest
+  deploy_ec2:
+    name: Deploy on EC2
+    runs-on: ubuntu-latest
+    needs: build_and_push
 
-    sudo docker run -d -p 3004:3000 --name updatepost \
-      -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
-      -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-      -e AWS_REGION="us-east-1" \
-      -e DYNAMODB_TABLE="${DYNAMODB_TABLE}" \
-      -e S3_BUCKET="${S3_BUCKET}" \
-      -e REDIS_HOST="${REDIS_HOST}" \
-      -e REDIS_PORT="${REDIS_PORT}" \
-      ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest
-  EOF
+    steps:
+      - name: Set up SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_PUBLIC_IP }} >> ~/.ssh/known_hosts
+
+      - name: Debug SSH Key
+        run: |
+          echo "Checking SSH key format..."
+          awk '{print NR " " $0}' ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "echo 'SSH Connection Test'"
+
+      - name: Deploy Docker Containers on EC2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "us-east-1"
+          DYNAMODB_TABLE: "${{ secrets.DYNAMODB_TABLE }}"
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          REDIS_HOST: ${{ secrets.REDIS_HOST }}
+          REDIS_PORT: "6379"
+        run: |
+          ssh -i ~/.ssh/id_rsa ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
+            echo "Verificando variables de entorno..."
+            echo "AWS_REGION=${AWS_REGION}"
+            echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}"
+            echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}"
+            echo "DYNAMODB_TABLE=${DYNAMODB_TABLE}"
+            echo "S3_BUCKET=${S3_BUCKET}"
+            echo "REDIS_HOST=${REDIS_HOST}"
+            echo "REDIS_PORT=${REDIS_PORT}"
+
+            if [[ -z "${DYNAMODB_TABLE}" ]]; then
+              export DYNAMODB_TABLE="PostsTable"
+              echo "DYNAMODB_TABLE no estaba definido, usando valor predeterminado: ${DYNAMODB_TABLE}"
+            fi
+
+            echo "Stopping and removing existing containers..."
+            sudo docker stop createpost deletepost getpost updatepost || echo "No running containers to stop."
+            sudo docker rm createpost deletepost getpost updatepost || echo "No existing containers to remove."
+
+            echo "Pulling latest Docker images..."
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
+
+            echo "Running containers with the latest images and environment variables..."
+            export AWS_REGION="us-east-1"
+
+            for service in createpost deletepost getpost updatepost; do
+              sudo docker run -d -p 3001:3000 --name $service \
+                -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+                -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+                -e AWS_REGION="us-east-1" \
+                -e DYNAMODB_TABLE="${DYNAMODB_TABLE}" \
+                -e S3_BUCKET="${S3_BUCKET}" \
+                -e REDIS_HOST="${REDIS_HOST}" \
+                -e REDIS_PORT="${REDIS_PORT}" \
+                ${{ secrets.DOCKERHUB_USERNAME }}/app:${service}-latest
+            done
+          EOF
