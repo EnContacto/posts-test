@@ -25,22 +25,22 @@ jobs:
 
       - name: Build and Push CreatePost Image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest ./createPost
+          docker build --no-cache -t ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest ./createPost
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest
 
       - name: Build and Push GetPost Image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest ./getPost
+          docker build --no-cache -t ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest ./getPost
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest
 
       - name: Build and Push UpdatePost Image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest ./updatePost
+          docker build --no-cache -t ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest ./updatePost
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest
 
       - name: Build and Push DeletePost Image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest ./deletePost
+          docker build --no-cache -t ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest ./deletePost
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
 
   deploy_ec2:
@@ -81,10 +81,13 @@ jobs:
               sudo docker rm $RUNNING_CONTAINERS
             fi
 
-            echo "Verificando variables de entorno..."
+            echo "Cleaning up old Docker images..."
+            sudo docker image prune -af
+
+            echo "Verifying environment variables..."
             if [[ -z "${DYNAMODB_TABLE}" ]]; then
               export DYNAMODB_TABLE="PostsTable"
-              echo "DYNAMODB_TABLE no estaba definido, usando valor predeterminado: ${DYNAMODB_TABLE}"
+              echo "DYNAMODB_TABLE not set, using default: ${DYNAMODB_TABLE}"
             fi
 
             echo "Pulling latest Docker images..."
@@ -97,6 +100,7 @@ jobs:
             export AWS_REGION="us-east-1"
 
             sudo docker run -d -p 3001:3000 --name createpost \
+              --restart always \
               -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
               -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
               -e AWS_REGION="us-east-1" \
@@ -107,6 +111,7 @@ jobs:
               ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest
 
             sudo docker run -d -p 3002:3000 --name deletepost \
+              --restart always \
               -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
               -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
               -e AWS_REGION="us-east-1" \
@@ -117,6 +122,7 @@ jobs:
               ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
 
             sudo docker run -d -p 3003:3000 --name getpost \
+              --restart always \
               -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
               -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
               -e AWS_REGION="us-east-1" \
@@ -127,6 +133,7 @@ jobs:
               ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest
 
             sudo docker run -d -p 3004:3000 --name updatepost \
+              --restart always \
               -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
               -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
               -e AWS_REGION="us-east-1" \
