@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  createpost:
+    build: ./createPost
+    ports:
+      - "3001:3000"
+    env_file:
+      - .env
+    depends_on:
+      - dynamodb
+      - redis
+    networks:
+      - app_network
+
+  deletepost:
+    build: ./deletePost
+    ports:
+      - "3002:3000"
+    env_file:
+      - .env
+    depends_on:
+      - dynamodb
+      - redis
+    networks:
+      - app_network
+
+  getpost:
+    build: ./getPost
+    ports:
+      - "3003:3000"
+    env_file:
+      - .env
+    depends_on:
+      - dynamodb
+      - redis
+    networks:
+      - app_network
+
+  updatepost:
+    build: ./updatePost
+    ports:
+      - "3004:3000"
+    env_file:
+      - .env
+    depends_on:
+      - dynamodb
+      - redis
+    networks:
+      - app_network
+
+  dynamodb:
+    image: amazon/dynamodb-local
+    ports:
+      - "8000:8000"
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb"]
+    networks:
+      - app_network
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
