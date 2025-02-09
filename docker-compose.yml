@@ -1,77 +1,54 @@
-version: '3.8'
+version: "3.8"
 
 services:
   createpost:
-    image: ztencontacto/app:createpost-latest
+    image: "${DOCKERHUB_USERNAME}/app:createpost-latest"
     container_name: createpost
     restart: always
-    ports:
-      - "3001:3000"
     environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_REGION=us-east-1
       - DYNAMODB_TABLE=PostsTable
       - S3_BUCKET=distribuidabucketsocial
-    networks:
-      - app_network
-
-  deletepost:
-    image: ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
     ports:
-      - "3002:3000"
-    environment:
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_REGION}
-      - DYNAMODB_TABLE=${DYNAMODB_TABLE}
-      - S3_BUCKET=${S3_BUCKET}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-    depends_on:
-      - redis
-    networks:
-      - app_network
+      - "3001:3000"
 
   getpost:
-    image: ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest
+    image: "${DOCKERHUB_USERNAME}/app:getpost-latest"
+    container_name: getpost
+    restart: always
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=us-east-1
+      - DYNAMODB_TABLE=PostsTable
+      - S3_BUCKET=distribuidabucketsocial
     ports:
       - "3003:3000"
-    environment:
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_REGION}
-      - DYNAMODB_TABLE=${DYNAMODB_TABLE}
-      - S3_BUCKET=${S3_BUCKET}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-    depends_on:
-      - redis
-    networks:
-      - app_network
 
   updatepost:
-    image: ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest
-    ports:
-      - "3004:3000"
+    image: "${DOCKERHUB_USERNAME}/app:updatepost-latest"
+    container_name: updatepost
+    restart: always
     environment:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_REGION}
-      - DYNAMODB_TABLE=${DYNAMODB_TABLE}
-      - S3_BUCKET=${S3_BUCKET}
-      - REDIS_HOST=${REDIS_HOST}
-      - REDIS_PORT=${REDIS_PORT}
-    depends_on:
-      - redis
-    networks:
-      - app_network
-
-  redis:
-    image: redis:latest
+      - AWS_REGION=us-east-1
+      - DYNAMODB_TABLE=PostsTable
+      - S3_BUCKET=distribuidabucketsocial
     ports:
-      - "6379:6379"
-    networks:
-      - app_network
+      - "3004:3000"
 
-networks:
-  app_network:
-    driver: bridge
+  deletepost:
+    image: "${DOCKERHUB_USERNAME}/app:deletepost-latest"
+    container_name: deletepost
+    restart: always
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=us-east-1
+      - DYNAMODB_TABLE=PostsTable
+      - S3_BUCKET=distribuidabucketsocial
+    ports:
+      - "3002:3000"
