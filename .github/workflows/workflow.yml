@@ -66,7 +66,7 @@ jobs:
           mkdir -p ~/.ssh || { echo "❌ Failed to create ~/.ssh"; exit 1; }
 
           echo "🔹 Adding private key..."
-          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa || { echo "❌ Failed to write private key"; exit 1; }
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa || { echo "❌ Failed to write private key"; exit 1; }
 
           echo "🔹 Setting permissions..."
           chmod 700 ~/.ssh
@@ -77,7 +77,10 @@ jobs:
 
       - name: Verify SSH Access
         run: |
+          echo "🔹 Verifying SSH connection to EC2..."
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "echo '✅ SSH Connection Successful'"
+        env:
+          SSH_AUTH_SOCK: /dev/null
 
   deploy_ec2:
     name: Deploy Docker Containers
@@ -93,7 +96,7 @@ jobs:
           DYNAMODB_TABLE: "${{ secrets.DYNAMODB_TABLE }}"
           S3_BUCKET: "${{ secrets.S3_BUCKET }}"
         run: |
-          ssh -i ~/.ssh/id_rsa ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
             echo "🔹 Changing to deployment directory..."
             cd ~/deployments || { echo "❌ Directory ~/deployments does not exist. Creating it..."; mkdir -p ~/deployments && cd ~/deployments; }
 
