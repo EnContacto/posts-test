@@ -6,8 +6,8 @@ on:
       - main
 
 jobs:
-  build_createpost:
-    name: Build and Push CreatePost
+  build_and_push:
+    name: Build and Push Docker Images
     runs-on: ubuntu-latest
 
     steps:
@@ -25,55 +25,28 @@ jobs:
 
       - name: Build and Push CreatePost Image
         run: |
-          docker build --no-cache -t ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest ./createPost
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest ./createPost
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest
-
-  build_getpost:
-    name: Build and Push GetPost
-    runs-on: ubuntu-latest
-    needs: build_createpost
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
 
       - name: Build and Push GetPost Image
         run: |
-          docker build --no-cache -t ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest ./getPost
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest ./getPost
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest
-
-  build_updatepost:
-    name: Build and Push UpdatePost
-    runs-on: ubuntu-latest
-    needs: build_getpost
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
 
       - name: Build and Push UpdatePost Image
         run: |
-          docker build --no-cache -t ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest ./updatePost
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest ./updatePost
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest
-
-  build_deletepost:
-    name: Build and Push DeletePost
-    runs-on: ubuntu-latest
-    needs: build_updatepost
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
 
       - name: Build and Push DeletePost Image
         run: |
-          docker build --no-cache -t ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest ./deletePost
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest ./deletePost
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
 
-  setup_ec2:
-    name: Configure EC2 Instance
+  deploy_ec2:
+    name: Deploy on EC2
     runs-on: ubuntu-latest
-    needs: build_deletepost
+    needs: build_and_push
 
     steps:
       - name: Set up SSH Key
@@ -85,16 +58,10 @@ jobs:
           eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/id_rsa
 
-      - name: Verify SSH Access
+      - name: Verify SSH Connection
         run: ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "echo 'SSH Connection Successful'"
 
-  deploy_ec2:
-    name: Deploy Docker Containers
-    runs-on: ubuntu-latest
-    needs: setup_ec2
-
-    steps:
-      - name: Deploy Containers on EC2
+      - name: Deploy to EC2
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -105,21 +72,19 @@ jobs:
           ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
             set -e
 
-            echo "Stopping and removing existing containers if running..."
-            services=("createpost" "deletepost" "getpost" "updatepost")
-            for service in "${services[@]}"; do
-              if sudo docker ps -a --format '{{.Names}}' | grep -q "^$service\$"; then
-                sudo docker stop $service
-                sudo docker rm $service
-              fi
-            done
+            echo "Changing to project directory..."
+            cd ~/deployments || exit 1
 
-            echo "Pulling latest Docker images..."
-            for service in "${services[@]}"; do
-              sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:${service}-latest
-            done
+            echo "Stopping existing containers..."
+            sudo docker-compose down
 
-            echo "Verifying and setting default environment variables..."
+            echo "Pulling latest images..."
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
+
+            echo "Verifying environment variables..."
             if [[ -z "${DYNAMODB_TABLE}" ]]; then
               export DYNAMODB_TABLE="PostsTable"
               echo "DYNAMODB_TABLE not set, using default: ${DYNAMODB_TABLE}"
@@ -130,21 +95,8 @@ jobs:
               echo "S3_BUCKET not set, using default: ${S3_BUCKET}"
             fi
 
-            echo "Running containers with the latest images..."
-            ports=("3001" "3002" "3003" "3004")
-            index=0
-            for service in "${services[@]}"; do
-              port=${ports[$index]}
-              sudo docker run -d -p ${port}:3000 --name ${service} \
-                --restart always \
-                -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
-                -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-                -e AWS_REGION="us-east-1" \
-                -e DYNAMODB_TABLE="${DYNAMODB_TABLE}" \
-                -e S3_BUCKET="${S3_BUCKET}" \
-                ${{ secrets.DOCKERHUB_USERNAME }}/app:${service}-latest
-              index=$((index + 1))
-            done
+            echo "Restarting services with Docker Compose..."
+            sudo docker-compose up -d
 
             echo "Deployment complete!"
           EOF
