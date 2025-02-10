@@ -1,41 +1,43 @@
 const { dynamoDB, s3 } = require("../config/awsConfig");
 
-exports.deletePost = async (req, res) => {
-    const { id } = req.params;
+module.exports.deletePost = async (req, res) => {
+  const { id } = req.params;
+  const tableName = process.env.DYNAMODB_TABLE || "PostsTable";
 
-    if (!id) {
-        return res.status(400).json({ error: "El ID del post es requerido." });
+  try {
+    // Retrieve post to get the image URL
+    const result = await dynamoDB.get({
+      TableName: tableName,
+      Key: { id },
+    }).promise();
+
+    if (!result.Item) {
+      return res.status(404).json({ error: "Post not found" });
     }
 
-    try {
-        // Obtener el post antes de eliminarlo
-        const postData = await dynamoDB.client.get({
-            TableName: dynamoDB.tableName,
-            Key: { id }
-        }).promise();
+    const { imageUrl } = result.Item;
 
-        if (!postData.Item) {
-            return res.status(404).json({ error: "El post no existe." });
-        }
+    // Delete post from DynamoDB
+    await dynamoDB.delete({
+      TableName: tableName,
+      Key: { id },
+    }).promise();
 
-        // Eliminar imagen del bucket S3 si existe
-        if (postData.Item.imageUrl) {
-            const imageKey = postData.Item.imageUrl.split('/').pop();
-            await s3.client.deleteObject({
-                Bucket: s3.bucketName,
-                Key: imageKey
-            }).promise();
-        }
+    // Delete image from S3 (if it exists)
+    if (imageUrl) {
+      const bucketName = process.env.S3_BUCKET || "distribuidabucketsocial";
+      const key = imageUrl.split("/").pop();
 
-        // Eliminar el post de DynamoDB
-        await dynamoDB.client.delete({
-            TableName: dynamoDB.tableName,
-            Key: { id }
-        }).promise();
-
-        res.json({ message: "Post eliminado correctamente." });
-    } catch (error) {
-        console.error("Error eliminando el post:", error);
-        res.status(500).json({ error: "Error interno del servidor." });
+      await s3.deleteObject({
+        Bucket: bucketName,
+        Key: key,
+      }).promise();
     }
+
+    res.status(200).json({ message: "Post deleted successfully" });
+
+  } catch (error) {
+    console.error("Error deleting post:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 };

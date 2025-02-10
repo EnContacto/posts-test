@@ -5,7 +5,7 @@ module.exports.deletePost = async (postId) => {
 
   try {
     // Fetch existing post to get image URL
-    const existingPost = await dynamoDB.client.get({
+    const existingPost = await dynamoDB.get({
       TableName: tableName,
       Key: { id: postId },
     }).promise();
@@ -17,14 +17,14 @@ module.exports.deletePost = async (postId) => {
     // Delete the image from S3 if it exists
     if (existingPost.Item.imageUrl) {
       const imageKey = existingPost.Item.imageUrl.split("/").pop();
-      await s3.client.deleteObject({
+      await s3.deleteObject({
         Bucket: process.env.S3_BUCKET || "distribuidabucketsocial",
         Key: imageKey,
       }).promise();
     }
 
     // Delete the post from DynamoDB
-    await dynamoDB.client.delete({
+    await dynamoDB.delete({
       TableName: tableName,
       Key: { id: postId },
     }).promise();
