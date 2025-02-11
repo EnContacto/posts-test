@@ -49,18 +49,6 @@ jobs:
     needs: build_and_push
 
     steps:
-      - name: Checkout repository (again)
-        uses: actions/checkout@v3
-
-      - name: Verify docker-compose.yml exists
-        run: |
-          if [ ! -f "docker-compose.yml" ]; then
-            echo "❌ ERROR: docker-compose.yml not found in the root directory!"
-            exit 1
-          else
-            echo "✅ docker-compose.yml found."
-          fi
-
       - name: Set up SSH Key
         run: |
           mkdir -p ~/.ssh
@@ -72,13 +60,18 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "echo 'SSH Connection Successful'"
 
-      - name: Create app directory on EC2
+      - name: Check for docker-compose.yml
         run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "mkdir -p ~/app"
+          if [ ! -f "./docker-compose.yml" ]; then
+            echo "❌ ERROR: docker-compose.yml not found!"
+            exit 1
+          else
+            echo "✅ docker-compose.yml found!"
+          fi
 
       - name: Copy docker-compose.yml to EC2
         run: |
-          scp -i ~/.ssh/id_rsa docker-compose.yml ec2-user@${{ secrets.EC2_PUBLIC_IP }}:~/app/docker-compose.yml
+          scp -i ~/.ssh/id_rsa ./docker-compose.yml ec2-user@${{ secrets.EC2_PUBLIC_IP }}:~/app/docker-compose.yml
 
       - name: Deploy to EC2
         env:
@@ -87,7 +80,6 @@ jobs:
           AWS_REGION: "us-east-1"
           DYNAMODB_TABLE: "${{ secrets.DYNAMODB_TABLE }}"
           S3_BUCKET: "${{ secrets.S3_BUCKET }}"
-          DOCKERHUB_USERNAME: "${{ secrets.DOCKERHUB_USERNAME }}"
         run: |
           ssh -i ~/.ssh/id_rsa ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
             set -e
@@ -97,6 +89,9 @@ jobs:
             sudo chmod +x /usr/local/bin/docker-compose
             docker-compose --version
 
+            echo "Creating project directory if it doesn't exist..."
+            mkdir -p ~/app
+
             echo "Changing to project directory..."
             cd ~/app || exit 1
 
@@ -104,24 +99,17 @@ jobs:
             sudo docker-compose down || true
 
             echo "Pulling latest images..."
-            sudo docker pull $DOCKERHUB_USERNAME/app:createpost-latest
-            sudo docker pull $DOCKERHUB_USERNAME/app:getpost-latest
-            sudo docker pull $DOCKERHUB_USERNAME/app:updatepost-latest
-            sudo docker pull $DOCKERHUB_USERNAME/app:deletepost-latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
 
-            echo "Setting environment variables in EC2..."
-            echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" | sudo tee -a /etc/environment
-            echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" | sudo tee -a /etc/environment
-            echo "AWS_REGION=${AWS_REGION}" | sudo tee -a /etc/environment
-            echo "DYNAMODB_TABLE=${DYNAMODB_TABLE}" | sudo tee -a /etc/environment
-            echo "S3_BUCKET=${S3_BUCKET}" | sudo tee -a /etc/environment
-            echo "DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}" | sudo tee -a /etc/environment
-
-            source /etc/environment
-
-            echo "Verifying Environment Variables..."
-            printenv | grep AWS
-            printenv | grep DOCKERHUB
+            echo "Setting environment variables..."
+            export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}"
+            export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
+            export AWS_REGION="us-east-1"
+            export DYNAMODB_TABLE="${DYNAMODB_TABLE}"
+            export S3_BUCKET="${S3_BUCKET}"
 
             echo "Restarting services..."
             sudo docker-compose up -d
