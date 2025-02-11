@@ -13,8 +13,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -51,11 +49,6 @@ jobs:
     needs: build_and_push
 
     steps:
-      - name: Checkout repository (again for deploy job)
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
       - name: Set up SSH Key
         run: |
           mkdir -p ~/.ssh
@@ -67,15 +60,6 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "echo '✅ SSH Connection Successful'"
 
-      - name: Ensure docker-compose.yml exists
-        run: |
-          echo "📂 Checking for docker-compose.yml..."
-          ls -la
-          if [ ! -f docker-compose.yml ]; then
-            echo "❌ ERROR: docker-compose.yml not found!"
-            exit 1
-          fi
-
       - name: Create app directory on EC2
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "mkdir -p ~/app"
@@ -83,16 +67,9 @@ jobs:
       - name: Copy docker-compose.yml to EC2
         run: |
           echo "📤 Copying docker-compose.yml to EC2..."
-          scp -v -i ~/.ssh/id_rsa docker-compose.yml ec2-user@${{ secrets.EC2_PUBLIC_IP }}:~/app/docker-compose.yml
+          scp -i ~/.ssh/id_rsa docker-compose.yml ec2-user@${{ secrets.EC2_PUBLIC_IP }}:~/app/docker-compose.yml
 
       - name: Deploy to EC2
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: "us-east-1"
-          DYNAMODB_TABLE: "${{ secrets.DYNAMODB_TABLE }}"
-          S3_BUCKET: "${{ secrets.S3_BUCKET }}"
-          DOCKERHUB_USERNAME: "${{ secrets.DOCKERHUB_USERNAME }}"
         run: |
           ssh -i ~/.ssh/id_rsa ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
             set -e
@@ -109,21 +86,21 @@ jobs:
             sudo docker-compose down || true
 
             echo "✅ Pulling latest images..."
-            sudo docker pull $DOCKERHUB_USERNAME/app:createpost-latest
-            sudo docker pull $DOCKERHUB_USERNAME/app:getpost-latest
-            sudo docker pull $DOCKERHUB_USERNAME/app:updatepost-latest
-            sudo docker pull $DOCKERHUB_USERNAME/app:deletepost-latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
 
             echo "✅ Writing environment variables to .env file..."
-            echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" | sudo tee ~/app/.env > /dev/null
-            echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" | sudo tee -a ~/app/.env > /dev/null
-            echo "AWS_REGION=us-east-1" | sudo tee -a ~/app/.env > /dev/null
-            echo "DYNAMODB_TABLE=${DYNAMODB_TABLE}" | sudo tee -a ~/app/.env > /dev/null
-            echo "S3_BUCKET=${S3_BUCKET}" | sudo tee -a ~/app/.env > /dev/null
-            echo "DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}" | sudo tee -a ~/app/.env > /dev/null
+            printf "AWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\nAWS_REGION=us-east-1\nDYNAMODB_TABLE=%s\nS3_BUCKET=%s\nDOCKERHUB_USERNAME=%s\n" \
+              "${{ secrets.AWS_ACCESS_KEY_ID }}" \
+              "${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+              "${{ secrets.DYNAMODB_TABLE }}" \
+              "${{ secrets.S3_BUCKET }}" \
+              "${{ secrets.DOCKERHUB_USERNAME }}" | sudo tee ~/app/.env > /dev/null
 
-            echo "✅ Reloading environment variables..."
-            export $(grep -v '^#' ~/app/.env | xargs)
+            echo "✅ Verifying Environment Variables..."
+            cat ~/app/.env
 
             echo "✅ Restarting services..."
             sudo docker-compose --env-file ~/app/.env up -d
