@@ -6,11 +6,11 @@ services:
     container_name: createpost
     restart: always
     environment:
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_REGION:-us-east-1}
-      - DYNAMODB_TABLE=${DYNAMODB_TABLE:-PostsTable}
-      - S3_BUCKET=${S3_BUCKET:-distribuidabucketsocial}
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_REGION: "${AWS_REGION}"
+      DYNAMODB_TABLE: "${DYNAMODB_TABLE}"
+      S3_BUCKET: "${S3_BUCKET}"
     ports:
       - "3001:3000"
 
@@ -19,11 +19,11 @@ services:
     container_name: getpost
     restart: always
     environment:
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_REGION:-us-east-1}
-      - DYNAMODB_TABLE=${DYNAMODB_TABLE:-PostsTable}
-      - S3_BUCKET=${S3_BUCKET:-distribuidabucketsocial}
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_REGION: "${AWS_REGION}"
+      DYNAMODB_TABLE: "${DYNAMODB_TABLE}"
+      S3_BUCKET: "${S3_BUCKET}"
     ports:
       - "3003:3000"
 
@@ -32,11 +32,11 @@ services:
     container_name: updatepost
     restart: always
     environment:
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_REGION:-us-east-1}
-      - DYNAMODB_TABLE=${DYNAMODB_TABLE:-PostsTable}
-      - S3_BUCKET=${S3_BUCKET:-distribuidabucketsocial}
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_REGION: "${AWS_REGION}"
+      DYNAMODB_TABLE: "${DYNAMODB_TABLE}"
+      S3_BUCKET: "${S3_BUCKET}"
     ports:
       - "3004:3000"
 
@@ -45,10 +45,10 @@ services:
     container_name: deletepost
     restart: always
     environment:
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_REGION:-us-east-1}
-      - DYNAMODB_TABLE=${DYNAMODB_TABLE:-PostsTable}
-      - S3_BUCKET=${S3_BUCKET:-distribuidabucketsocial}
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_REGION: "${AWS_REGION}"
+      DYNAMODB_TABLE: "${DYNAMODB_TABLE}"
+      S3_BUCKET: "${S3_BUCKET}"
     ports:
       - "3002:3000"
