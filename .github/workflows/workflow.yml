@@ -49,6 +49,18 @@ jobs:
     needs: build_and_push
 
     steps:
+      - name: Checkout repository (again)
+        uses: actions/checkout@v3
+
+      - name: Verify docker-compose.yml exists
+        run: |
+          if [ ! -f "docker-compose.yml" ]; then
+            echo "❌ ERROR: docker-compose.yml not found in the root directory!"
+            exit 1
+          else
+            echo "✅ docker-compose.yml found."
+          fi
+
       - name: Set up SSH Key
         run: |
           mkdir -p ~/.ssh
@@ -60,18 +72,13 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "echo 'SSH Connection Successful'"
 
-      - name: Ensure docker-compose.yml exists
+      - name: Create app directory on EC2
         run: |
-          if [ ! -f "./docker-compose.yml" ]; then
-            echo "❌ ERROR: docker-compose.yml not found!"
-            exit 1
-          else
-            echo "✅ docker-compose.yml found."
-          fi
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "mkdir -p ~/app"
 
       - name: Copy docker-compose.yml to EC2
         run: |
-          scp -i ~/.ssh/id_rsa ./docker-compose.yml ec2-user@${{ secrets.EC2_PUBLIC_IP }}:~/app/docker-compose.yml
+          scp -i ~/.ssh/id_rsa docker-compose.yml ec2-user@${{ secrets.EC2_PUBLIC_IP }}:~/app/docker-compose.yml
 
       - name: Deploy to EC2
         env:
@@ -88,9 +95,6 @@ jobs:
             sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
             sudo chmod +x /usr/local/bin/docker-compose
             docker-compose --version
-
-            echo "Creating project directory if it doesn't exist..."
-            mkdir -p ~/app
 
             echo "Changing to project directory..."
             cd ~/app || exit 1
