@@ -65,7 +65,10 @@ jobs:
         run: |
           echo "🔑 Configuring SSH Key..."
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
+          
+          # ✅ Limpia la clave SSH para evitar errores de formato o espacios ocultos
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" | sed 's/\r$//' | tr -d '\r' > ~/.ssh/id_rsa
+
           chmod 600 ~/.ssh/id_rsa
 
           echo "🛠️ Verifying SSH Key Exists..."
