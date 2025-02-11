@@ -60,13 +60,23 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "echo '✅ SSH Connection Successful'"
 
+      - name: Ensure docker-compose.yml exists
+        run: |
+          echo "📂 Checking for docker-compose.yml..."
+          ls -la
+          if [ ! -f docker-compose.yml ]; then
+            echo "❌ ERROR: docker-compose.yml not found!"
+            exit 1
+          fi
+
       - name: Create app directory on EC2
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "mkdir -p ~/app"
 
       - name: Copy docker-compose.yml to EC2
         run: |
-          scp -i ~/.ssh/id_rsa docker-compose.yml ec2-user@${{ secrets.EC2_PUBLIC_IP }}:~/app/docker-compose.yml
+          echo "📤 Copying docker-compose.yml to EC2..."
+          scp -v -i ~/.ssh/id_rsa docker-compose.yml ec2-user@${{ secrets.EC2_PUBLIC_IP }}:~/app/docker-compose.yml
 
       - name: Deploy to EC2
         env:
