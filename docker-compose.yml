@@ -3,52 +3,44 @@ version: "3.8"
 services:
   createpost:
     image: "${DOCKERHUB_USERNAME}/app:createpost-latest"
-    container_name: createpost
-    restart: always
+    ports:
+      - "3001:3000"
     environment:
       AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
-      AWS_REGION: "${AWS_REGION}"
+      AWS_REGION: "us-east-1"
       DYNAMODB_TABLE: "${DYNAMODB_TABLE}"
       S3_BUCKET: "${S3_BUCKET}"
-    ports:
-      - "3001:3000"
 
   getpost:
     image: "${DOCKERHUB_USERNAME}/app:getpost-latest"
-    container_name: getpost
-    restart: always
+    ports:
+      - "3002:3000"
     environment:
       AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
-      AWS_REGION: "${AWS_REGION}"
+      AWS_REGION: "us-east-1"
       DYNAMODB_TABLE: "${DYNAMODB_TABLE}"
       S3_BUCKET: "${S3_BUCKET}"
-    ports:
-      - "3003:3000"
 
   updatepost:
     image: "${DOCKERHUB_USERNAME}/app:updatepost-latest"
-    container_name: updatepost
-    restart: always
+    ports:
+      - "3003:3000"
     environment:
       AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
-      AWS_REGION: "${AWS_REGION}"
+      AWS_REGION: "us-east-1"
       DYNAMODB_TABLE: "${DYNAMODB_TABLE}"
       S3_BUCKET: "${S3_BUCKET}"
-    ports:
-      - "3004:3000"
 
   deletepost:
     image: "${DOCKERHUB_USERNAME}/app:deletepost-latest"
-    container_name: deletepost
-    restart: always
+    ports:
+      - "3004:3000"
     environment:
       AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
-      AWS_REGION: "${AWS_REGION}"
+      AWS_REGION: "us-east-1"
       DYNAMODB_TABLE: "${DYNAMODB_TABLE}"
       S3_BUCKET: "${S3_BUCKET}"
-    ports:
-      - "3002:3000"
