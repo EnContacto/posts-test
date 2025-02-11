@@ -23,13 +23,25 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Build and Push Images
+      - name: Build and Push CreatePost Image
         run: |
-          services=("createpost" "getpost" "updatepost" "deletepost")
-          for service in "${services[@]}"; do
-            docker build --no-cache -t ${{ secrets.DOCKERHUB_USERNAME }}/app:$service-latest ./$service
-            docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:$service-latest
-          done
+          docker build --no-cache -t ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest ./createPost
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest
+
+      - name: Build and Push GetPost Image
+        run: |
+          docker build --no-cache -t ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest ./getPost
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest
+
+      - name: Build and Push UpdatePost Image
+        run: |
+          docker build --no-cache -t ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest ./updatePost
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest
+
+      - name: Build and Push DeletePost Image
+        run: |
+          docker build --no-cache -t ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest ./deletePost
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
 
   setup_ec2:
     name: Configure EC2 Instance
