@@ -58,20 +58,15 @@ jobs:
 
       - name: Verify SSH Connection
         run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "echo 'SSH Connection Successful'"
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "echo '✅ SSH Connection Successful'"
 
-      - name: Check for docker-compose.yml
+      - name: Create app directory on EC2
         run: |
-          if [ ! -f "./docker-compose.yml" ]; then
-            echo "❌ ERROR: docker-compose.yml not found!"
-            exit 1
-          else
-            echo "✅ docker-compose.yml found!"
-          fi
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "mkdir -p ~/app"
 
       - name: Copy docker-compose.yml to EC2
         run: |
-          scp -i ~/.ssh/id_rsa ./docker-compose.yml ec2-user@${{ secrets.EC2_PUBLIC_IP }}:~/app/docker-compose.yml
+          scp -i ~/.ssh/id_rsa docker-compose.yml ec2-user@${{ secrets.EC2_PUBLIC_IP }}:~/app/docker-compose.yml
 
       - name: Deploy to EC2
         env:
@@ -80,37 +75,44 @@ jobs:
           AWS_REGION: "us-east-1"
           DYNAMODB_TABLE: "${{ secrets.DYNAMODB_TABLE }}"
           S3_BUCKET: "${{ secrets.S3_BUCKET }}"
+          DOCKERHUB_USERNAME: "${{ secrets.DOCKERHUB_USERNAME }}"
         run: |
           ssh -i ~/.ssh/id_rsa ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
             set -e
 
-            echo "Installing Docker Compose..."
+            echo "✅ Installing Docker Compose..."
             sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
             sudo chmod +x /usr/local/bin/docker-compose
             docker-compose --version
 
-            echo "Creating project directory if it doesn't exist..."
-            mkdir -p ~/app
-
-            echo "Changing to project directory..."
+            echo "✅ Changing to project directory..."
             cd ~/app || exit 1
 
-            echo "Stopping existing containers..."
+            echo "✅ Stopping existing containers..."
             sudo docker-compose down || true
 
-            echo "Pulling latest images..."
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
+            echo "✅ Pulling latest images..."
+            sudo docker pull $DOCKERHUB_USERNAME/app:createpost-latest
+            sudo docker pull $DOCKERHUB_USERNAME/app:getpost-latest
+            sudo docker pull $DOCKERHUB_USERNAME/app:updatepost-latest
+            sudo docker pull $DOCKERHUB_USERNAME/app:deletepost-latest
 
-            echo "Setting environment variables..."
-            export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}"
-            export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
-            export AWS_REGION="us-east-1"
-            export DYNAMODB_TABLE="${DYNAMODB_TABLE}"
-            export S3_BUCKET="${S3_BUCKET}"
+            echo "✅ Writing environment variables to .env file..."
+            echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" | sudo tee ~/app/.env > /dev/null
+            echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" | sudo tee -a ~/app/.env > /dev/null
+            echo "AWS_REGION=us-east-1" | sudo tee -a ~/app/.env > /dev/null
+            echo "DYNAMODB_TABLE=${DYNAMODB_TABLE}" | sudo tee -a ~/app/.env > /dev/null
+            echo "S3_BUCKET=${S3_BUCKET}" | sudo tee -a ~/app/.env > /dev/null
+            echo "DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME}" | sudo tee -a ~/app/.env > /dev/null
 
-            echo "Restarting services..."
-            sudo docker-compose up -d
+            echo "✅ Reloading environment variables..."
+            export $(grep -v '^#' ~/app/.env | xargs)
+
+            echo "✅ Verifying Environment Variables..."
+            cat ~/app/.env
+            printenv | grep AWS
+            printenv | grep DOCKERHUB
+
+            echo "✅ Restarting services..."
+            sudo docker-compose --env-file ~/app/.env up -d
           EOF
