@@ -56,15 +56,21 @@ jobs:
             exit 1
           fi
 
-      - name: Temporarily Store SSH Key on EC2
-        run: |
-          echo "📝 Writing SSH Key to EC2 (temporarily)..."
-          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" | base64 --decode | ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "mkdir -p ~/.ssh && cat > ~/.ssh/temp_key && chmod 600 ~/.ssh/temp_key"
+          if [[ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" || -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]]; then
+            echo "❌ ERROR: AWS Credentials are missing!"
+            exit 1
+          fi
 
-      - name: Verify SSH Access with Temporary Key
+      - name: Set up SSH Key and Test Connection
         run: |
-          echo "🔍 Testing SSH connection with the temporary key..."
-          ssh -i ~/.ssh/temp_key -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "echo '✅ SSH Connection Successful'"
+          echo "🔑 Configuring SSH Key..."
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_PUBLIC_IP }} >> ~/.ssh/known_hosts
+
+          echo "🔍 Testing SSH Connection..."
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "echo '✅ SSH Connection Successful'"
 
   deploy_ec2:
     name: Deploy Docker Containers
@@ -80,7 +86,7 @@ jobs:
           DYNAMODB_TABLE: "${{ secrets.DYNAMODB_TABLE }}"
           S3_BUCKET: "${{ secrets.S3_BUCKET }}"
         run: |
-          ssh -i ~/.ssh/temp_key ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
+          ssh -i ~/.ssh/id_rsa ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
             echo "✅ Connected to EC2 Instance"
 
             echo "Stopping and removing existing containers..."
@@ -118,7 +124,4 @@ jobs:
             done
 
             echo "✅ Deployment complete!"
-
-            echo "🗑️ Removing temporary SSH key..."
-            rm -f ~/.ssh/temp_key
           EOF
