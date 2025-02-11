@@ -69,11 +69,16 @@ jobs:
           S3_BUCKET: "${{ secrets.S3_BUCKET }}"
         run: |
           ssh -i ~/.ssh/id_rsa ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
+            set -e
+
+            echo "Creating project directory if it doesn't exist..."
+            mkdir -p ~/app
+
             echo "Changing to project directory..."
             cd ~/app || exit 1
 
             echo "Stopping existing containers..."
-            sudo docker-compose down
+            sudo docker-compose down || true
 
             echo "Pulling latest images..."
             sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest
