@@ -60,55 +60,69 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "echo '✅ SSH Connection Successful'"
 
-      - name: Verify docker-compose.yml existence
-        run: |
-          echo "📂 Listing files in the workspace..."
-          ls -lah
-          
-          if [ ! -f "./docker-compose.yml" ]; then
-            echo "❌ ERROR: docker-compose.yml not found!"
-            exit 1
-          fi
-          echo "✅ docker-compose.yml found!"
-
-      - name: Copy docker-compose.yml to EC2
-        run: |
-          echo "📤 Copying docker-compose.yml to EC2..."
-          scp -i ~/.ssh/id_rsa docker-compose.yml ec2-user@${{ secrets.EC2_PUBLIC_IP }}:~/app/docker-compose.yml
-
-      - name: Deploy to EC2
+      - name: Deploy Containers on EC2 (without docker-compose)
         run: |
           ssh -i ~/.ssh/id_rsa ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
             set -e
 
-            echo "✅ Installing Docker Compose..."
-            sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-            sudo chmod +x /usr/local/bin/docker-compose
-            docker-compose --version
+            echo "✅ Checking and Installing Docker..."
+            if ! command -v docker &> /dev/null; then
+              sudo yum update -y
+              sudo yum install docker -y
+              sudo systemctl start docker
+              sudo systemctl enable docker
+            fi
 
-            echo "✅ Changing to project directory..."
-            cd ~/app || exit 1
+            echo "✅ Stopping and Removing Old Containers..."
+            for service in createpost deletepost getpost updatepost; do
+              if sudo docker ps -a --format '{{.Names}}' | grep -q "^$service\$"; then
+                sudo docker stop $service
+                sudo docker rm $service
+              fi
+            done
 
-            echo "✅ Stopping existing containers..."
-            sudo docker-compose down || true
-
-            echo "✅ Pulling latest images..."
+            echo "✅ Pulling Latest Docker Images..."
             sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest
             sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest
             sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest
             sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
 
-            echo "✅ Writing environment variables to .env file..."
-            printf "AWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s\nAWS_REGION=us-east-1\nDYNAMODB_TABLE=%s\nS3_BUCKET=%s\nDOCKERHUB_USERNAME=%s\n" \
-              "${{ secrets.AWS_ACCESS_KEY_ID }}" \
-              "${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
-              "${{ secrets.DYNAMODB_TABLE }}" \
-              "${{ secrets.S3_BUCKET }}" \
-              "${{ secrets.DOCKERHUB_USERNAME }}" | sudo tee ~/app/.env > /dev/null
+            echo "✅ Running Containers with Environment Variables..."
+            sudo docker run -d -p 3001:3000 --name createpost \
+              --restart always \
+              -e AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" \
+              -e AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+              -e AWS_REGION="us-east-1" \
+              -e DYNAMODB_TABLE="${{ secrets.DYNAMODB_TABLE }}" \
+              -e S3_BUCKET="${{ secrets.S3_BUCKET }}" \
+              ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest
 
-            echo "✅ Verifying Environment Variables..."
-            cat ~/app/.env
+            sudo docker run -d -p 3002:3000 --name deletepost \
+              --restart always \
+              -e AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" \
+              -e AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+              -e AWS_REGION="us-east-1" \
+              -e DYNAMODB_TABLE="${{ secrets.DYNAMODB_TABLE }}" \
+              -e S3_BUCKET="${{ secrets.S3_BUCKET }}" \
+              ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
 
-            echo "✅ Restarting services..."
-            sudo docker-compose --env-file ~/app/.env up -d
+            sudo docker run -d -p 3003:3000 --name getpost \
+              --restart always \
+              -e AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" \
+              -e AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+              -e AWS_REGION="us-east-1" \
+              -e DYNAMODB_TABLE="${{ secrets.DYNAMODB_TABLE }}" \
+              -e S3_BUCKET="${{ secrets.S3_BUCKET }}" \
+              ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest
+
+            sudo docker run -d -p 3004:3000 --name updatepost \
+              --restart always \
+              -e AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}" \
+              -e AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+              -e AWS_REGION="us-east-1" \
+              -e DYNAMODB_TABLE="${{ secrets.DYNAMODB_TABLE }}" \
+              -e S3_BUCKET="${{ secrets.S3_BUCKET }}" \
+              ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest
+
+            echo "✅ Deployment Completed!"
           EOF
