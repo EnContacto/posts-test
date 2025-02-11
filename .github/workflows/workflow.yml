@@ -60,9 +60,13 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "echo '✅ SSH Connection Successful'"
 
-      - name: Create app directory on EC2
+      - name: Verify docker-compose.yml existence
         run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} "mkdir -p ~/app"
+          if [ ! -f "./docker-compose.yml" ]; then
+            echo "❌ ERROR: docker-compose.yml not found!"
+            exit 1
+          fi
+          echo "✅ docker-compose.yml found!"
 
       - name: Copy docker-compose.yml to EC2
         run: |
