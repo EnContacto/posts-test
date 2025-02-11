@@ -62,6 +62,9 @@ jobs:
 
       - name: Verify docker-compose.yml existence
         run: |
+          echo "📂 Listing files in the workspace..."
+          ls -lah
+          
           if [ ! -f "./docker-compose.yml" ]; then
             echo "❌ ERROR: docker-compose.yml not found!"
             exit 1
