@@ -80,6 +80,16 @@ jobs:
               sudo systemctl enable docker
             fi
 
+            echo "Creating ~/deployments directory if it doesn't exist..."
+            mkdir -p ~/deployments
+
+            echo "Writing .env file..."
+            echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" > ~/deployments/.env
+            echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" >> ~/deployments/.env
+            echo "AWS_REGION=us-east-1" >> ~/deployments/.env
+            echo "DYNAMODB_TABLE=${DYNAMODB_TABLE}" >> ~/deployments/.env
+            echo "S3_BUCKET=${S3_BUCKET}" >> ~/deployments/.env
+
             echo "Stopping and removing existing containers..."
             for service in createpost deletepost getpost updatepost; do
               if sudo docker ps -a --format '{{.Names}}' | grep -q "^$service\$"; then
@@ -94,52 +104,25 @@ jobs:
             sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest
             sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
 
-            echo "Verifying environment variables..."
-            if [[ -z "${DYNAMODB_TABLE}" ]]; then
-              export DYNAMODB_TABLE="PostsTable"
-              echo "DYNAMODB_TABLE not set, using default: ${DYNAMODB_TABLE}"
-            fi
-
-            if [[ -z "${S3_BUCKET}" ]]; then
-              export S3_BUCKET="distribuidabucketsocial"
-              echo "S3_BUCKET not set, using default: ${S3_BUCKET}"
-            fi
-
             echo "Starting services..."
             sudo docker run -d -p 3001:3000 --name createpost \
               --restart always \
-              -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
-              -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-              -e AWS_REGION="us-east-1" \
-              -e DYNAMODB_TABLE="${DYNAMODB_TABLE}" \
-              -e S3_BUCKET="${S3_BUCKET}" \
+              --env-file ~/deployments/.env \
               ${{ secrets.DOCKERHUB_USERNAME }}/app:createpost-latest
 
             sudo docker run -d -p 3002:3000 --name deletepost \
               --restart always \
-              -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
-              -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-              -e AWS_REGION="us-east-1" \
-              -e DYNAMODB_TABLE="${DYNAMODB_TABLE}" \
-              -e S3_BUCKET="${S3_BUCKET}" \
+              --env-file ~/deployments/.env \
               ${{ secrets.DOCKERHUB_USERNAME }}/app:deletepost-latest
 
             sudo docker run -d -p 3003:3000 --name getpost \
               --restart always \
-              -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
-              -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-              -e AWS_REGION="us-east-1" \
-              -e DYNAMODB_TABLE="${DYNAMODB_TABLE}" \
-              -e S3_BUCKET="${S3_BUCKET}" \
+              --env-file ~/deployments/.env \
               ${{ secrets.DOCKERHUB_USERNAME }}/app:getpost-latest
 
             sudo docker run -d -p 3004:3000 --name updatepost \
               --restart always \
-              -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
-              -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
-              -e AWS_REGION="us-east-1" \
-              -e DYNAMODB_TABLE="${DYNAMODB_TABLE}" \
-              -e S3_BUCKET="${S3_BUCKET}" \
+              --env-file ~/deployments/.env \
               ${{ secrets.DOCKERHUB_USERNAME }}/app:updatepost-latest
 
             echo "Deployment complete!"
