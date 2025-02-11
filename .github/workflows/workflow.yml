@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
@@ -49,6 +51,11 @@ jobs:
     needs: build_and_push
 
     steps:
+      - name: Checkout repository (again for deploy job)
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
       - name: Set up SSH Key
         run: |
           mkdir -p ~/.ssh
@@ -117,11 +124,6 @@ jobs:
 
             echo "✅ Reloading environment variables..."
             export $(grep -v '^#' ~/app/.env | xargs)
-
-            echo "✅ Verifying Environment Variables..."
-            cat ~/app/.env
-            printenv | grep AWS
-            printenv | grep DOCKERHUB
 
             echo "✅ Restarting services..."
             sudo docker-compose --env-file ~/app/.env up -d
